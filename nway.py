@@ -391,7 +391,7 @@ if args.consider_unrelated_associations:
 					# ok, this is helpful.
 					# identify the separations and errors
 					# identify the prior
-					prior_j = source_densities[augmented_cats[0]] / numpy.prod(source_densities_plus[augmented_cats])
+					prior_j = float(source_densities[augmented_cats[0]]) / float(numpy.prod(source_densities_plus[augmented_cats]))
 					# compute a log_bf
 					if simple_errors:
 						errors_selected = [[errors[k][j]] for k in augmented_cats]
