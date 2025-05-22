@@ -125,6 +125,10 @@ def greatarc_interpolate(posa, posb, f):
 	c_dec = lat_f * 180 / pi
 	return c_ra, c_dec
 
+#########################################################################################################################################################
+# Added by M.Fonseca in 22.05.2025
+# Implement a way to create a random object without collision for objects that don't have neighboors outside the given radius but inside the HEALPix Pixel
+# Make it search other order HEALPix Pixel neighbors until it finds at least 1 neighbor
 
 # for each of them, create a new one without collision
 pbar = progress.bar(ndigits=6)
@@ -149,7 +153,29 @@ for index in pbar(range(n)):
 	#d = d[dmask]
 	b_nearest = b_nearest[dmask]
 
-	assert len(b_nearest) > 0, "Method failed: No sources found nearby, could not interpolate a fake source."
+	
+	
+	# Fallback: try expanding the HEALPix neighborhood until you find at least one valid neighbor
+	if len(b_nearest) == 0:
+		print(f"[{index}] No neighbors found in initial HEALPix pixel — expanding search radius...")
+		for ring in range(2, 6):  # Try larger rings of neighbors
+			# get neighbors at increasing rings
+			neighbors = healpy.query_disc(nside, vec=numpy.array(healpy.ang2vec(theta[a], phi[a])), 
+										  radius=ring * numpy.radians(radius / 3600.0), nest=True)
+			is_neighbor = (k.reshape((-1,1)) == neighbors.reshape((1,-1))).any(axis=1)
+			ra_nearby = ra_orig[is_neighbor]
+			dec_nearby = dec_orig[is_neighbor]
+
+			d = match.dist((ra_orig[a], dec_orig[a]), (ra_nearby, dec_nearby))
+			b_nearest = numpy.argsort(d)
+			dmask = d[b_nearest] * 60 * 60 > radius
+			b_nearest = b_nearest[dmask]
+
+			if len(b_nearest) > 0:
+				print(f"[{index}] Found {len(b_nearest)} neighbors in ring {ring}.")
+				break
+
+	# assert len(b_nearest) > 0, "Method failed: No sources found nearby, could not interpolate a fake source."
 
 	#print('have %d neighbors' % len(b_nearest))
 	b_nearest = b_nearest[:100]
