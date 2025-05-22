@@ -158,9 +158,9 @@ for index in pbar(range(n)):
 	# Fallback: try expanding the HEALPix neighborhood until you find at least one valid neighbor
 	if len(b_nearest) == 0:
 		print(f"[{index}] No neighbors found in initial HEALPix pixel — expanding search radius...")
-		for ring in range(2, 6):  # Try larger rings of neighbors
+		for ring in range(2, 100):  # Try larger rings of neighbors
 			# get neighbors at increasing rings
-	            	vec = healpy.ang2vec(numpy.radians(90.0 - dec_orig[a]), numpy.radians(ra_orig[a]))  # colat, lon
+	            	vec = healpy.ang2vec(theta[a], phi[a])
            		neighbors = healpy.query_disc(nside, vec=vec, radius=ring * numpy.radians(radius / 3600.0), nest=True)
 
             		is_neighbor = (k.reshape((-1, 1)) == neighbors.reshape((1, -1))).any(axis=1)
