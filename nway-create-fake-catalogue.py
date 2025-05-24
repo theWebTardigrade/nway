@@ -128,7 +128,6 @@ def greatarc_interpolate(posa, posb, f):
 #########################################################################################################################################################
 # Added by M.Fonseca in 22.05.2025
 # Implement a way to create a random object without collision for objects that don't have neighboors outside the given radius but inside the HEALPix Pixel
-# Make it search other order HEALPix Pixel neighbors until it finds at least 1 neighbor
 
 # for each of them, create a new one without collision
 pbar = progress.bar(ndigits=6)
@@ -154,27 +153,38 @@ for index in pbar(range(n)):
 	b_nearest = b_nearest[dmask]
 
 	
-	
-	# Fallback: try expanding the HEALPix neighborhood until you find at least one valid neighbor
 	if len(b_nearest) == 0:
-		print(f"[{index}] No neighbors found in initial HEALPix pixel — expanding search radius...")
-		for ring in range(2, 100):  # Try larger rings of neighbors
-			# get neighbors at increasing rings
-	            	vec = healpy.ang2vec(theta[a], phi[a])
-           		neighbors = healpy.query_disc(nside, vec=vec, radius=ring * numpy.radians(radius / 3600.0), nest=True)
-
-            		is_neighbor = (k.reshape((-1, 1)) == neighbors.reshape((1, -1))).any(axis=1)
-           		ra_nearby = ra_orig[is_neighbor]
-            		dec_nearby = dec_orig[is_neighbor]
-
-			d = match.dist((ra_orig[a], dec_orig[a]), (ra_nearby, dec_nearby))
-			b_nearest = numpy.argsort(d)
-			dmask = d[b_nearest] * 60 * 60 > radius
-			b_nearest = b_nearest[dmask]
-
-			if len(b_nearest) > 0:
-				print(f"[{index}] Found {len(b_nearest)} neighbors in ring {ring}.")
-				break
+	    print(f"[{index}] No neighbors found in HEALPix pixel — generating random offset point.")
+	    # No neighbors found — generate a random offset point instead
+	    healpix_res_deg = healpy.nside2resol(nside, arcmin=False) * 180 / pi  # in degrees
+	    r_min = radius / 2.0 / 3600.0  # convert arcsec to degrees
+	    r_max = healpix_res_deg
+	
+	    while True:
+	        r = numpy.random.uniform(r_min, r_max)
+	        theta_offset = numpy.random.uniform(0, 2 * pi)
+	
+	        # Compute random offset in RA/Dec
+	        ra_i = ra_orig[a] + r * cos(theta_offset) / cos(dec_orig[a] * pi / 180.0)
+	        dec_i = dec_orig[a] + r * sin(theta_offset)
+	
+	        # Wrap and clip
+	        ra_i = numpy.fmod(ra_i + 360, 360)
+	        dec_i = numpy.clip(dec_i, -90, 90)
+	
+	        # Check for collision with original nearby sources
+	        d = match.dist((ra_i, dec_i), (ra_nearby, dec_nearby))
+	        if (d * 60 * 60 < radius).any():
+	            continue  # too close to an original source
+	
+	        # Check for collision with previously placed new sources
+	        d = match.dist((ra_i, dec_i), (ra[:index], dec[:index]))
+	        if (d * 60 * 60 < radius).any():
+	            continue  # too close to a new fake source
+	
+	        ra[index] = ra_i
+	        dec[index] = dec_i
+	        break
 
 	# assert len(b_nearest) > 0, "Method failed: No sources found nearby, could not interpolate a fake source."
 
